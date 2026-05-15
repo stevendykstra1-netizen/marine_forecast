@@ -44,7 +44,7 @@ export function DiscussionSection({ sections, updatedAt, isLoading, error, onRet
               <div className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-1">
                 {s.name}
               </div>
-              <pre className="text-xs text-slate-400 leading-relaxed font-mono whitespace-pre-wrap break-words">{s.text}</pre>
+              <p className="text-xs text-slate-400 leading-relaxed">{s.text}</p>
             </div>
           ))}
         </div>

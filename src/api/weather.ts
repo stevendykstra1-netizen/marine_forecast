@@ -25,6 +25,16 @@ async function fetchLatestProduct(type: string, office: string): Promise<{ produ
   return nwsFetch(latest['@id'])
 }
 
+// NWS products wrap lines at 80 chars. Collapse single newlines into spaces
+// so the text flows naturally in the UI, but preserve blank-line paragraph breaks.
+function normalizeNwsText(text: string): string {
+  return text
+    .replace(/\n\n+/g, '\0')
+    .replace(/\n/g, ' ')
+    .replace(/\0/g, '\n')
+    .trim()
+}
+
 function parseProductSections(text: string): MarinePeriod[] {
   // Match period headers like "TONIGHT...", "WEDNESDAY...", "LAKE MICHIGAN...", etc.
   const sections: MarinePeriod[] = []
@@ -35,7 +45,7 @@ function parseProductSections(text: string): MarinePeriod[] {
   while ((match = marinePattern.exec(text)) !== null) {
     const name = match[1].trim()
     const body = match[2].trim()
-    if (name && body) sections.push({ name, text: body })
+    if (name && body) sections.push({ name, text: normalizeNwsText(body) })
   }
 
   if (sections.length === 0) {
@@ -44,7 +54,7 @@ function parseProductSections(text: string): MarinePeriod[] {
     for (const part of parts) {
       const headerMatch = part.match(/^\.([A-Z][A-Z0-9 ]+)\.\.\.([\s\S]*)/)
       if (headerMatch) {
-        sections.push({ name: headerMatch[1].trim(), text: headerMatch[2].trim() })
+        sections.push({ name: headerMatch[1].trim(), text: normalizeNwsText(headerMatch[2]) })
       }
     }
   }
@@ -118,7 +128,7 @@ function parseNshForZone741(text: string): MarinePeriod[] {
     while ((m = re.exec(chunk)) !== null) {
       const name = m[1].trim()
       const body = m[2].trim()
-      if (name && body) periods.push({ name, text: body })
+      if (name && body) periods.push({ name, text: normalizeNwsText(body) })
     }
     if (periods.length > 0) return periods
   }
