@@ -2,6 +2,20 @@
   command = "npm run build"
   publish = "dist"
 
+# Proxy NDBC buoy data — no CORS headers on their end
+[[redirects]]
+  from = "/api/ndbc/:id"
+  to = "https://www.ndbc.noaa.gov/data/realtime2/:id.txt"
+  status = 200
+  force = true
+
+# Proxy GLERL lake surface temp image — old URL broke, no CORS on new one
+[[redirects]]
+  from = "/api/glerl"
+  to = "https://apps.glerl.noaa.gov/coastwatch/webdata/glsea/cur/glsea_cur_3.png"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

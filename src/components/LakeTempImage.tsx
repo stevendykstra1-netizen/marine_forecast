@@ -3,7 +3,7 @@ export function LakeTempImage() {
     <div className="bg-[#111d2e] rounded-2xl p-4">
       <div className="text-xs uppercase tracking-widest text-slate-500 mb-3">Lake Surface Temp</div>
       <img
-        src="https://coastwatch.glerl.noaa.gov/glsea/glsea.gif"
+        src="/api/glerl"
         alt="Great Lakes surface temperature"
         className="w-full rounded"
       />

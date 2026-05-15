@@ -1,7 +1,7 @@
 import { BuoyObservation, StationConfig } from '../types'
 import { msToKt, mToFt, cToF, degToCardinal } from '../lib/units'
 
-const NDBC_BASE = 'https://www.ndbc.noaa.gov/data/realtime2'
+const NDBC_BASE = '/api/ndbc'
 
 interface RawBuoyData {
   windDirDeg: number | null
@@ -55,9 +55,7 @@ function parseNdbcText(text: string): RawBuoyData {
 
 export async function fetchBuoy(station: StationConfig): Promise<BuoyObservation> {
   const url = `${NDBC_BASE}/${station.id}.txt`
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'chicago-marine-pwa (contact: my-email@example.com)' },
-  })
+  const res = await fetch(url)
   if (!res.ok) throw new Error(`NDBC ${station.id} fetch failed: ${res.status}`)
 
   const text = await res.text()
