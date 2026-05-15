@@ -93,11 +93,43 @@ export async function fetchAlerts(): Promise<NwsAlert[]> {
   })
 }
 
+// LMZ741 = Wilmette Harbor to Northerly Island IL (Belmont Harbor area).
+// The NSH product from LOT groups it as LMZ740>742.
+function zoneGroupCoversLmz741(header: string): boolean {
+  const rangeMatch = header.match(/LMZ(\d+)>(\d+)/)
+  if (rangeMatch) {
+    const lo = parseInt(rangeMatch[1], 10)
+    const hi = parseInt(rangeMatch[2], 10)
+    return lo <= 741 && 741 <= hi
+  }
+  return header.includes('LMZ741')
+}
+
+function parseNshForZone741(text: string): MarinePeriod[] {
+  // NSH product splits sections with $$
+  const chunks = text.split(/\$\$/)
+  for (const chunk of chunks) {
+    if (!zoneGroupCoversLmz741(chunk)) continue
+    // Extract .PERIOD...text blocks
+    const periods: MarinePeriod[] = []
+    const re = /^\.([\w ]+)\.\.\.([\s\S]*?)(?=^\.[A-Z]|$)/gm
+    let m
+    while ((m = re.exec(chunk)) !== null) {
+      const name = m[1].trim()
+      const body = m[2].trim()
+      if (name && body) periods.push({ name, text: body })
+    }
+    if (periods.length > 0) return periods
+  }
+  // Fallback: return generic parse
+  return parseProductSections(text)
+}
+
 // --- Marine zone forecast ---
 export async function fetchMarineZone(): Promise<MarineZoneForecast> {
-  const product = await fetchLatestProduct('GLF', WFO)
+  const product = await fetchLatestProduct('NSH', WFO)
   return {
-    periods: parseProductSections(product.productText),
+    periods: parseNshForZone741(product.productText),
     updatedAt: new Date(product.issuanceTime),
   }
 }
