@@ -69,11 +69,12 @@ async function getPoints() {
 export async function fetchHourlyForecast(): Promise<HourlyPeriod[]> {
   const { forecastHourly } = await getPoints()
   const data = await nwsFetch(forecastHourly)
-  return data.properties.periods.slice(0, 12).map((p: Record<string, unknown>) => ({
+  return data.properties.periods.slice(0, 24).map((p: Record<string, unknown>) => ({
     startTime: p.startTime,
     temperature: p.temperature,
     temperatureUnit: p.temperatureUnit,
     windSpeed: p.windSpeed,
+    windDirection: p.windDirection,
     probabilityOfPrecipitation: (p.probabilityOfPrecipitation as { value: number | null }) ?? { value: null },
     shortForecast: p.shortForecast,
   }))

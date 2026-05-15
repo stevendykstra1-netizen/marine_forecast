@@ -7,6 +7,8 @@ import { AlertBanner } from './components/AlertBanner'
 import { BuoyCard, BuoyCardSkeleton } from './components/BuoyCard'
 import { SecondaryStations } from './components/SecondaryStations'
 import { HourlyForecast, HourlyForecastSkeleton } from './components/HourlyForecast'
+import { WindForecast, WindForecastSkeleton } from './components/WindForecast'
+import { RadarMap } from './components/RadarMap'
 import { MarineSection } from './components/MarineSection'
 import { DiscussionSection } from './components/DiscussionSection'
 import { LakeTempImage } from './components/LakeTempImage'
@@ -101,8 +103,16 @@ export function App() {
         {hourlyQuery.isLoading ? (
           <HourlyForecastSkeleton />
         ) : hourlyQuery.data ? (
-          <HourlyForecast periods={hourlyQuery.data} />
+          <HourlyForecast periods={hourlyQuery.data.slice(0, 12)} />
         ) : null}
+
+        {hourlyQuery.isLoading ? (
+          <WindForecastSkeleton />
+        ) : hourlyQuery.data ? (
+          <WindForecast periods={hourlyQuery.data} />
+        ) : null}
+
+        <RadarMap />
 
         <MarineSection
           data={marineQuery.data}

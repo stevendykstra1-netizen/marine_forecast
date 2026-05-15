@@ -23,6 +23,7 @@ export interface HourlyPeriod {
   temperature: number
   temperatureUnit: string
   windSpeed: string
+  windDirection: string
   probabilityOfPrecipitation: { value: number | null }
   shortForecast: string
 }

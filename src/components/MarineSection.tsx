@@ -43,7 +43,7 @@ export function MarineSection({ data, isLoading, error, onRetry }: Props) {
               <div className="text-xs font-semibold text-slate-300 uppercase tracking-wide mb-1">
                 {p.name}
               </div>
-              <pre className="text-xs text-slate-400 leading-relaxed font-mono">{p.text}</pre>
+              <pre className="text-xs text-slate-400 leading-relaxed font-mono whitespace-pre-wrap break-words">{p.text}</pre>
             </div>
           ))}
         </div>
