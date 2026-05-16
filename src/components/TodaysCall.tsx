@@ -9,16 +9,7 @@ export interface DayCallCardProps {
   windowStart: Date
   windowEnd: Date
   isPrimary?: boolean
-}
-
-function parseWindKt(s: string | null): number {
-  if (!s || s.toLowerCase() === 'calm') return 0
-  const nums = s.match(/\d+/g)
-  if (!nums) return 0
-  const mph = nums.length > 1
-    ? (parseInt(nums[0]) + parseInt(nums[nums.length - 1])) / 2
-    : parseInt(nums[0])
-  return Math.round(mph * 0.868976)
+  marineText?: string
 }
 
 function fmtTime(iso: string): string {
@@ -28,16 +19,9 @@ function fmtTime(iso: string): string {
     .replace(':00', '')
 }
 
-function segLabel(startMs: number): string {
-  const h = new Date(startMs).getHours()
-  if (h < 12) return 'AM'
-  if (h < 17) return 'Mid'
-  return 'Eve'
-}
-
 function avgKt(periods: HourlyPeriod[]): number | null {
-  if (!periods.length) return null
-  const vals = periods.map(p => parseWindKt(p.windSpeed))
+  const vals = periods.map(p => p.windSpeedKt).filter((v): v is number => v !== null)
+  if (!vals.length) return null
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
 }
 
@@ -55,16 +39,18 @@ export function DayCallCard({
   windowStart,
   windowEnd,
   isPrimary = true,
+  marineText,
 }: DayCallCardProps) {
   if (!hourlyPeriods.length && !wavePeriods.length) return null
 
-  const windKts = hourlyPeriods.map(p => parseWindKt(p.windSpeed))
-  const gustKts = hourlyPeriods.map(p => parseWindKt(p.windGust))
+  const windKts = hourlyPeriods.map(p => p.windSpeedKt ?? 0)
+  const gustKts = hourlyPeriods.map(p => p.windGustKt ?? 0)
   const waveFts = wavePeriods.map(p => p.waveHeightFt ?? 0)
 
   const maxWindKt = Math.max(...windKts, 0)
   const maxGustKt = Math.max(...gustKts, 0)
   const maxWaveFt = Math.max(...waveFts, 0)
+  const maxThunder = Math.max(...wavePeriods.map(p => p.thunderPct ?? 0), 0)
 
   const peakWindIdx = windKts.indexOf(maxWindKt)
   const peakWaveIdx = waveFts.indexOf(maxWaveFt)
@@ -72,14 +58,24 @@ export function DayCallCard({
   const peakWaveTime = wavePeriods[peakWaveIdx]?.startTime ?? ''
 
   const hasWarning = alerts.some(a => a.event.toLowerCase().includes('warning'))
+  // Text fallback: check marine forecast text if grid thunder data unavailable
+  const thunderDataMissing = wavePeriods.every(p => p.thunderPct === null)
+  const textHasThunder = thunderDataMissing && !!marineText && /thunder/i.test(marineText)
+  const effectiveThunder = thunderDataMissing && textHasThunder ? 25 : maxThunder
 
   let verdict: 'Good' | 'Marginal' | 'Rough'
   let verdictColor: string
   let cardStyle: string
-  if (maxWindKt > 20 || maxWaveFt > 4 || hasWarning) {
+
+  if (effectiveThunder > 50 || maxWindKt > 20 || maxWaveFt > 4 || hasWarning) {
     verdict = 'Rough'
     verdictColor = 'text-red-400'
     cardStyle = 'border-red-900 bg-red-950/40'
+  } else if (effectiveThunder > 20) {
+    // Thunder risk caps at Marginal regardless of wind/wave
+    verdict = 'Marginal'
+    verdictColor = 'text-amber-400'
+    cardStyle = 'border-amber-900 bg-amber-950/40'
   } else if (maxWindKt < 12 && (maxWaveFt < 2 || !wavePeriods.length)) {
     verdict = 'Good'
     verdictColor = 'text-emerald-400'
@@ -90,7 +86,7 @@ export function DayCallCard({
     cardStyle = 'border-amber-900 bg-amber-950/40'
   }
 
-  // Peak lines — wind and waves separately for compact layout
+  // Peak lines
   const windPeakLine = maxGustKt > maxWindKt
     ? `${maxWindKt}kt G${maxGustKt}${peakWindTime ? ` @ ${fmtTime(peakWindTime)}` : ''}`
     : `${maxWindKt}kt${peakWindTime ? ` @ ${fmtTime(peakWindTime)}` : ''}`
@@ -98,7 +94,7 @@ export function DayCallCard({
     ? `${maxWaveFt.toFixed(1)}ft${peakWaveTime ? ` @ ${fmtTime(peakWaveTime)}` : ''}`
     : null
 
-  // Plain-English summary (only for primary card)
+  // Plain-English summary
   let summary = ''
   if (isPrimary && hourlyPeriods.length) {
     const firstKt = windKts[0] ?? 0
@@ -123,28 +119,37 @@ export function DayCallCard({
       : ''
     const maxPrecip = Math.max(...hourlyPeriods.map(p => p.probabilityOfPrecipitation.value ?? 0))
     const precipPhrase = maxPrecip >= 40 ? ', showers possible' : ''
-    summary = [windPhrase, wavePhrase].filter(Boolean).join(', ') + precipPhrase + '.'
+
+    // Thunder timing note
+    let thunderPhrase = ''
+    if (effectiveThunder > 20) {
+      const firstStorm = wavePeriods.find(p => (p.thunderPct ?? 0) > 20)
+      thunderPhrase = firstStorm
+        ? `, thunderstorms possible after ${fmtTime(firstStorm.startTime)}`
+        : ', thunderstorms possible'
+    }
+
+    summary = [windPhrase, wavePhrase].filter(Boolean).join(', ') + precipPhrase + thunderPhrase + '.'
   }
 
-  // Morning / midday / evening breakdown
-  const totalMs = windowEnd.getTime() - windowStart.getTime()
-  const third = totalMs / 3
-  const seg1End = new Date(windowStart.getTime() + third)
-  const seg2End = new Date(windowStart.getTime() + 2 * third)
+  // Fixed MORN / AFT / EVE segments based on clock time of the window date
+  const winDay = windowStart
+  const noon = new Date(winDay.getFullYear(), winDay.getMonth(), winDay.getDate(), 12, 0)
+  const fivePm = new Date(winDay.getFullYear(), winDay.getMonth(), winDay.getDate(), 17, 0)
+  const nowMs = Date.now()
 
-  const inSeg = (t: number, start: Date, end: Date) => t >= start.getTime() && t < end.getTime()
-  const seg1H = hourlyPeriods.filter(p => inSeg(new Date(p.startTime).getTime(), windowStart, seg1End))
-  const seg2H = hourlyPeriods.filter(p => inSeg(new Date(p.startTime).getTime(), seg1End, seg2End))
-  const seg3H = hourlyPeriods.filter(p => inSeg(new Date(p.startTime).getTime(), seg2End, windowEnd))
-  const seg1W = wavePeriods.filter(p => inSeg(new Date(p.startTime).getTime(), windowStart, seg1End))
-  const seg2W = wavePeriods.filter(p => inSeg(new Date(p.startTime).getTime(), seg1End, seg2End))
-  const seg3W = wavePeriods.filter(p => inSeg(new Date(p.startTime).getTime(), seg2End, windowEnd))
-
-  const segs = [
-    { label: segLabel(windowStart.getTime()), hourly: seg1H, waves: seg1W },
-    { label: segLabel(seg1End.getTime()), hourly: seg2H, waves: seg2W },
-    { label: segLabel(seg2End.getTime()), hourly: seg3H, waves: seg3W },
+  const segDefs = [
+    { label: 'MORN', start: windowStart, end: noon,       isPast: nowMs >= noon.getTime() },
+    { label: 'AFT',  start: noon,         end: fivePm,    isPast: nowMs >= fivePm.getTime() },
+    { label: 'EVE',  start: fivePm,       end: windowEnd, isPast: false },
   ]
+
+  const inSeg = (t: number, s: Date, e: Date) => t >= s.getTime() && t < e.getTime()
+  const segs = segDefs.map(seg => ({
+    ...seg,
+    hourly: hourlyPeriods.filter(p => inSeg(new Date(p.startTime).getTime(), seg.start, seg.end)),
+    waves:  wavePeriods.filter(p  => inSeg(new Date(p.startTime).getTime(), seg.start, seg.end)),
+  }))
 
   return (
     <div className={`rounded-2xl border p-3 flex flex-col ${cardStyle} ${!isPrimary ? 'opacity-60' : ''}`}>
@@ -154,16 +159,16 @@ export function DayCallCard({
       </div>
       <div className="text-xs text-slate-400 tabular-nums leading-snug">{windPeakLine}</div>
       {wavePeakLine && <div className="text-xs text-slate-400 tabular-nums leading-snug mb-1">{wavePeakLine}</div>}
-      {summary && <div className="text-xs text-slate-500 mb-2 leading-snug">{summary}</div>}
+      {summary && <div className="text-xs text-slate-500 leading-snug mb-2">{summary}</div>}
       {!summary && <div className="mb-2" />}
 
-      {/* AM / Mid / Eve breakdown */}
+      {/* MORN / AFT / EVE breakdown */}
       <div className="grid grid-cols-3 gap-1 border-t border-slate-800/60 pt-2 mt-auto">
         {segs.map(seg => {
           const kt = avgKt(seg.hourly)
           const ft = avgFt(seg.waves)
           return (
-            <div key={seg.label} className="flex flex-col items-center gap-0.5">
+            <div key={seg.label} className={`flex flex-col items-center gap-0.5 ${seg.isPast ? 'opacity-35' : ''}`}>
               <div className="text-xs text-slate-600">{seg.label}</div>
               <div className={`text-xs font-semibold tabular-nums ${windColor(kt)}`}>
                 {kt !== null ? `${kt}kt` : '—'}

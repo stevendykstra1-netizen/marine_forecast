@@ -148,6 +148,7 @@ export function App() {
               windowStart={now}
               windowEnd={todaySunset}
               isPrimary={!isTodayDimmed}
+              marineText={marineQuery.data?.periods.map(p => p.text).join(' ')}
             />
             <DayCallCard
               label="TOMORROW"
@@ -157,6 +158,7 @@ export function App() {
               windowStart={tomorrowSunrise}
               windowEnd={tomorrowSunset}
               isPrimary={isTodayDimmed}
+              marineText={marineQuery.data?.periods.map(p => p.text).join(' ')}
             />
           </div>
         )}

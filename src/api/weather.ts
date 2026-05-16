@@ -62,6 +62,17 @@ function parseProductSections(text: string): MarinePeriod[] {
   return sections.length > 0 ? sections : [{ name: 'FORECAST', text: text.trim() }]
 }
 
+function parseNwsMphToKt(s: unknown): number | null {
+  if (!s || typeof s !== 'string') return null
+  if (s.toLowerCase() === 'calm') return 0
+  const nums = s.match(/\d+/g)
+  if (!nums) return null
+  const mph = nums.length > 1
+    ? (parseInt(nums[0]) + parseInt(nums[nums.length - 1])) / 2
+    : parseInt(nums[0])
+  return Math.round(mph * 0.868976)
+}
+
 // --- Points (cached once) ---
 let pointsCache: { forecastHourly: string; forecastZone: string; forecastGridData: string } | null = null
 
@@ -84,8 +95,8 @@ export async function fetchHourlyForecast(): Promise<HourlyPeriod[]> {
     startTime: p.startTime,
     temperature: p.temperature,
     temperatureUnit: p.temperatureUnit,
-    windSpeed: p.windSpeed,
-    windGust: (p.windGust as string | null) ?? null,
+    windSpeedKt: parseNwsMphToKt(p.windSpeed),
+    windGustKt: parseNwsMphToKt(p.windGust),
     windDirection: p.windDirection,
     probabilityOfPrecipitation: (p.probabilityOfPrecipitation as { value: number | null }) ?? { value: null },
     shortForecast: p.shortForecast,
@@ -150,31 +161,46 @@ export async function fetchMarineZone(): Promise<MarineZoneForecast> {
 }
 
 // --- Wave forecast (grid data) ---
-export async function fetchWaveForecast(): Promise<WaveHourly[]> {
-  const { forecastGridData } = await getPoints() as { forecastHourly: string; forecastZone: string; forecastGridData: string }
-  const data = await nwsFetch(forecastGridData)
-  const values: Array<{ validTime: string; value: number | null }> =
-    data.properties?.waveHeight?.values ?? []
+type GridValue = { validTime: string; value: number | null }
 
-  // validTime format: "2024-06-01T12:00:00+00:00/PT1H" — expand duration intervals
-  const hours: WaveHourly[] = []
-  const now = Date.now()
-  const cutoff = now + 48 * 60 * 60 * 1000
-
+function expandGridValues(values: GridValue[], now: number, cutoff: number): Map<number, number | null> {
+  const map = new Map<number, number | null>()
   for (const v of values) {
     const [isoStart, duration] = v.validTime.split('/')
     const start = new Date(isoStart).getTime()
-    const durationHours = duration ? parseInt(duration.replace(/[^0-9]/g, '')) || 1 : 1
-    for (let h = 0; h < durationHours; h++) {
+    const hrs = duration ? parseInt(duration.replace(/[^0-9]/g, '')) || 1 : 1
+    for (let h = 0; h < hrs; h++) {
       const t = start + h * 3600 * 1000
-      if (t >= now && t < cutoff) {
-        hours.push({
-          startTime: new Date(t).toISOString(),
-          waveHeightFt: v.value !== null ? Math.round(v.value * 3.28084 * 10) / 10 : null,
-        })
-      }
+      if (t >= now && t < cutoff) map.set(t, v.value)
     }
   }
+  return map
+}
+
+export async function fetchWaveForecast(): Promise<WaveHourly[]> {
+  const { forecastGridData } = await getPoints() as { forecastHourly: string; forecastZone: string; forecastGridData: string }
+  const data = await nwsFetch(forecastGridData)
+  const now = Date.now()
+  const cutoff = now + 48 * 60 * 60 * 1000
+
+  const waveMap = expandGridValues(data.properties?.waveHeight?.values ?? [], now, cutoff)
+  const thunderMap = expandGridValues(data.properties?.probabilityOfThunder?.values ?? [], now, cutoff)
+
+  const hours: WaveHourly[] = []
+  for (const [t, rawWave] of waveMap) {
+    hours.push({
+      startTime: new Date(t).toISOString(),
+      waveHeightFt: rawWave !== null ? Math.round(rawWave * 3.28084 * 10) / 10 : null,
+      thunderPct: thunderMap.get(t) ?? null,
+    })
+  }
+  // Fill thunder for any hours that have thunder data but no wave data
+  for (const [t, pct] of thunderMap) {
+    if (!waveMap.has(t)) {
+      hours.push({ startTime: new Date(t).toISOString(), waveHeightFt: null, thunderPct: pct })
+    }
+  }
+  hours.sort((a, b) => a.startTime.localeCompare(b.startTime))
 
   return hours.slice(0, 48)
 }

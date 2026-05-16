@@ -22,7 +22,7 @@ export function DiscussionSection({ sections, updatedAt, isLoading, error, onRet
         <span>Why — forecaster's reasoning</span>
         {updatedAt && (
           <span className="ml-auto text-slate-700">
-            {updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            AFD issued {updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </span>
         )}
       </button>

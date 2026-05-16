@@ -26,8 +26,8 @@ export interface HourlyPeriod {
   startTime: string
   temperature: number
   temperatureUnit: string
-  windSpeed: string
-  windGust: string | null
+  windSpeedKt: number | null
+  windGustKt: number | null
   windDirection: string
   probabilityOfPrecipitation: { value: number | null }
   shortForecast: string
@@ -58,4 +58,5 @@ export interface DiscussionSection {
 export interface WaveHourly {
   startTime: string
   waveHeightFt: number | null
+  thunderPct: number | null
 }

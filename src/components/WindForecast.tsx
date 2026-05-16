@@ -5,16 +5,6 @@ interface Props {
   periods: HourlyPeriod[]
 }
 
-function parseWindKt(windSpeed: string | null): number | null {
-  if (!windSpeed || windSpeed.toLowerCase() === 'calm') return 0
-  const nums = windSpeed.match(/\d+/g)
-  if (!nums) return null
-  const mph = nums.length > 1
-    ? (parseInt(nums[0]) + parseInt(nums[nums.length - 1])) / 2
-    : parseInt(nums[0])
-  return Math.round(mph * 0.868976)
-}
-
 function cardinalToDeg(dir: string): number {
   const map: Record<string, number> = {
     N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
@@ -51,7 +41,7 @@ function WindSparkline({ periods, maxKt }: { periods: HourlyPeriod[]; maxKt: num
   const W = periods.length * COL_W + Math.max(0, periods.length - 1) * GAP
 
   const pts = periods.map((p, i) => {
-    const kt = parseWindKt(p.windSpeed) ?? 0
+    const kt = p.windSpeedKt ?? 0
     const x = i * STEP + COL_W / 2
     const y = PAD + dataH * (1 - Math.min(kt, maxKt) / Math.max(maxKt, 1))
     return { x, y, kt }
@@ -76,7 +66,7 @@ function WindSparkline({ periods, maxKt }: { periods: HourlyPeriod[]; maxKt: num
 }
 
 export function WindForecast({ periods }: Props) {
-  const maxKt = Math.max(...periods.map(p => parseWindKt(p.windSpeed) ?? 0), 1)
+  const maxKt = Math.max(...periods.map(p => p.windSpeedKt ?? 0), 1)
 
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4">
@@ -93,8 +83,8 @@ export function WindForecast({ periods }: Props) {
           <WindSparkline periods={periods} maxKt={maxKt} />
           <div className="flex gap-2 pb-1 mt-1">
             {periods.map((p, i) => {
-              const kt = parseWindKt(p.windSpeed)
-              const gustKt = parseWindKt(p.windGust)
+              const kt = p.windSpeedKt
+              const gustKt = p.windGustKt
               const showGust = gustKt !== null && kt !== null && gustKt > kt
               const barHeight = kt !== null ? Math.round((kt / maxKt) * 40) : 0
               const color = windColor(kt)

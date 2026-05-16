@@ -10,7 +10,7 @@ export function RadarMap() {
         Live Radar · Lake Michigan <span className="text-slate-600 normal-case tracking-normal">↗</span>
       </a>
       <iframe
-        src="https://embed.windy.com/embed2.html?lat=42.20&lon=-87.20&detailLat=41.94&detailLon=-87.64&zoom=7&level=surface&overlay=radar&menu=&message=&marker=&forecast=12&hourly=1&lang=en&units=metric&type=map&country=US"
+        src="https://embed.windy.com/embed2.html?lat=41.92&lon=-87.63&detailLat=41.92&detailLon=-87.63&zoom=8&level=surface&overlay=radar&menu=&message=&marker=&forecast=12&hourly=1&lang=en&units=metric&type=map&country=US"
         style={{ width: '100%', height: 380, border: 'none', display: 'block' }}
         title="Lake Michigan radar"
         allow="fullscreen"
