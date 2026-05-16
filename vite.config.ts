@@ -7,6 +7,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        runtimeCaching: [
+          {
+            // NWS text products (NSH, AFD) — update ~4x/day, StaleWhileRevalidate
+            urlPattern: /api\.weather\.gov\/products\/types\/(NSH|AFD)/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'nws-products',
+              expiration: { maxAgeSeconds: 6 * 60 * 60 },
+            },
+          },
+          {
+            // Buoy observations and active alerts — always NetworkFirst
+            urlPattern: /api\.weather\.gov\/alerts|ndbc\.noaa\.gov/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'live-data', networkTimeoutSeconds: 10 },
+          },
+        ],
+      },
       manifest: {
         name: 'Chicago Marine',
         short_name: 'Marine',

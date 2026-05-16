@@ -1,6 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { fetchBuoy, hasData } from './api/ndbc'
-import { fetchAlerts, fetchHourlyForecast, fetchMarineZone, fetchDiscussion, fetchWaveForecast } from './api/weather'
+import { fetchAlerts, fetchHourlyForecast, fetchMarineZone, fetchDiscussion, fetchWaveForecast, fetchSunriseSunset } from './api/weather'
 import { StationConfig } from './types'
 import { Header } from './components/Header'
 import { AlertBanner } from './components/AlertBanner'
@@ -12,6 +12,8 @@ import { WaveForecast, WaveForecastSkeleton } from './components/WaveForecast'
 import { RadarMap } from './components/RadarMap'
 import { MarineSection } from './components/MarineSection'
 import { DiscussionSection } from './components/DiscussionSection'
+import { TodaysCall } from './components/TodaysCall'
+import { SunriseSunset } from './components/SunriseSunset'
 
 const STATIONS: StationConfig[] = [
   { id: 'CHII2', label: 'Chicago Crib', primary: true },
@@ -47,10 +49,12 @@ export function App() {
     retry: 1,
   })
 
+  // Marine zone only updates ~4x/day — show cached data immediately, revalidate in background
   const marineQuery = useQuery({
     queryKey: ['marineZone'],
     queryFn: fetchMarineZone,
-    staleTime: FORECAST_STALE,
+    staleTime: 2 * 60 * 60 * 1000,
+    gcTime: 6 * 60 * 60 * 1000,
     retry: 1,
   })
 
@@ -65,6 +69,13 @@ export function App() {
     queryKey: ['wave'],
     queryFn: fetchWaveForecast,
     staleTime: FORECAST_STALE,
+    retry: 1,
+  })
+
+  const sunQuery = useQuery({
+    queryKey: ['sunrise'],
+    queryFn: fetchSunriseSunset,
+    staleTime: 12 * 60 * 60 * 1000,
     retry: 1,
   })
 
@@ -90,10 +101,22 @@ export function App() {
       <div className="max-w-lg mx-auto px-4 safe-top safe-bottom pb-6 space-y-3">
         <Header primary={displayedPrimary} />
 
+        {sunQuery.data && (
+          <SunriseSunset sunrise={sunQuery.data.sunrise} sunset={sunQuery.data.sunset} />
+        )}
+
         <AlertBanner
           alerts={alertsQuery.data ?? []}
           isLoading={alertsQuery.isLoading}
         />
+
+        {(hourlyQuery.data || alertsQuery.data) && (
+          <TodaysCall
+            alerts={alertsQuery.data ?? []}
+            hourlyPeriods={hourlyQuery.data ?? []}
+            wavePeriods={waveQuery.data ?? []}
+          />
+        )}
 
         {primaryLoading ? (
           <BuoyCardSkeleton />

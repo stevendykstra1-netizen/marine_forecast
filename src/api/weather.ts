@@ -179,6 +179,20 @@ export async function fetchWaveForecast(): Promise<WaveHourly[]> {
   return hours.slice(0, 24)
 }
 
+// --- Sunrise / Sunset ---
+export async function fetchSunriseSunset(): Promise<{ sunrise: Date; sunset: Date }> {
+  const res = await fetch(
+    `https://api.sunrise-sunset.org/json?lat=${LAT}&lng=${LON}&formatted=0`
+  )
+  if (!res.ok) throw new Error(`Sunrise fetch failed: ${res.status}`)
+  const data = await res.json()
+  if (data.status !== 'OK') throw new Error('Sunrise API error')
+  return {
+    sunrise: new Date(data.results.sunrise),
+    sunset: new Date(data.results.sunset),
+  }
+}
+
 // --- Forecast discussion ---
 export async function fetchDiscussion(): Promise<{ sections: MarinePeriod[]; updatedAt: Date }> {
   const product = await fetchLatestProduct('AFD', WFO)
