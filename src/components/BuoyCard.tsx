@@ -8,6 +8,19 @@ interface Props {
   isOfflineFallback?: boolean
 }
 
+function TrendArrow({ delta, unit, threshold = 1 }: { delta: number | null | undefined; unit: string; threshold?: number }) {
+  if (delta === null || delta === undefined) return null
+  const abs = Math.abs(delta)
+  if (abs < threshold) return <span className="text-xs text-slate-500 ml-1">→</span>
+  const up = delta > 0
+  const sign = up ? '+' : ''
+  return (
+    <span className={`text-xs ml-1 ${up ? 'text-red-400' : 'text-emerald-400'}`}>
+      {up ? '↑' : '↓'}{sign}{delta}{unit}
+    </span>
+  )
+}
+
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -43,9 +56,12 @@ export function BuoyCard({ obs, isPrimary = false, isOfflineFallback = false }: 
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-4">
         <Stat label="Wind">
-          <div className={`text-3xl font-bold tabular-nums ${windColor(obs.windSpeedKt)}`}>
-            {obs.windSpeedKt !== null ? Math.round(obs.windSpeedKt) : <Missing />}
-            {obs.windSpeedKt !== null && <span className="text-sm font-normal text-slate-400 ml-1"> kt</span>}
+          <div className="flex items-baseline">
+            <div className={`text-3xl font-bold tabular-nums ${windColor(obs.windSpeedKt)}`}>
+              {obs.windSpeedKt !== null ? Math.round(obs.windSpeedKt) : <Missing />}
+              {obs.windSpeedKt !== null && <span className="text-sm font-normal text-slate-400 ml-1"> kt</span>}
+            </div>
+            <TrendArrow delta={obs.trend?.windDeltaKt} unit="kt" threshold={1} />
           </div>
           {obs.windGustKt !== null && (
             <div className={`text-sm ${windColor(obs.windGustKt)}`}>
@@ -59,9 +75,12 @@ export function BuoyCard({ obs, isPrimary = false, isOfflineFallback = false }: 
         </Stat>
 
         <Stat label="Waves">
-          <div className={`text-3xl font-bold tabular-nums ${waveColor(obs.waveHeightFt)}`}>
-            {obs.waveHeightFt !== null ? obs.waveHeightFt.toFixed(1) : '—'}
-            {obs.waveHeightFt !== null && <span className="text-sm font-normal text-slate-400 ml-1"> ft</span>}
+          <div className="flex items-baseline">
+            <div className={`text-3xl font-bold tabular-nums ${waveColor(obs.waveHeightFt)}`}>
+              {obs.waveHeightFt !== null ? obs.waveHeightFt.toFixed(1) : '—'}
+              {obs.waveHeightFt !== null && <span className="text-sm font-normal text-slate-400 ml-1"> ft</span>}
+            </div>
+            <TrendArrow delta={obs.trend?.waveDeltaFt} unit="ft" threshold={0.2} />
           </div>
           {obs.wavePeriodSec !== null && (
             <div className="text-sm text-slate-400">{obs.wavePeriodSec}s period</div>

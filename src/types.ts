@@ -16,6 +16,10 @@ export interface BuoyObservation {
   waterTempF: number | null
   airTempF: number | null
   observedAt: Date
+  trend?: {
+    windDeltaKt: number | null
+    waveDeltaFt: number | null
+  }
 }
 
 export interface HourlyPeriod {
@@ -23,6 +27,7 @@ export interface HourlyPeriod {
   temperature: number
   temperatureUnit: string
   windSpeed: string
+  windGust: string | null
   windDirection: string
   probabilityOfPrecipitation: { value: number | null }
   shortForecast: string

@@ -21,7 +21,7 @@ export function MarineSection({ data, isLoading, error, onRetry }: Props) {
         </a>
         {data?.updatedAt && (
           <div className="text-xs text-slate-600">
-            {data.updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            Issued {data.updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </div>
         )}
       </div>

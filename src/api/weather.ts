@@ -85,6 +85,7 @@ export async function fetchHourlyForecast(): Promise<HourlyPeriod[]> {
     temperature: p.temperature,
     temperatureUnit: p.temperatureUnit,
     windSpeed: p.windSpeed,
+    windGust: (p.windGust as string | null) ?? null,
     windDirection: p.windDirection,
     probabilityOfPrecipitation: (p.probabilityOfPrecipitation as { value: number | null }) ?? { value: null },
     shortForecast: p.shortForecast,

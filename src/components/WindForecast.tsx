@@ -5,15 +5,14 @@ interface Props {
   periods: HourlyPeriod[]
 }
 
-function parseWindKt(windSpeed: string): number | null {
+function parseWindKt(windSpeed: string | null): number | null {
   if (!windSpeed || windSpeed.toLowerCase() === 'calm') return 0
   const nums = windSpeed.match(/\d+/g)
   if (!nums) return null
-  // "10 to 20 mph" -> average; "10 mph" -> 10
   const mph = nums.length > 1
     ? (parseInt(nums[0]) + parseInt(nums[nums.length - 1])) / 2
     : parseInt(nums[0])
-  return Math.round(mph * 0.868976) // mph to knots
+  return Math.round(mph * 0.868976)
 }
 
 function cardinalToDeg(dir: string): number {
@@ -27,12 +26,53 @@ function cardinalToDeg(dir: string): number {
 }
 
 function formatHour(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(':00', '')
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', hour12: true }).replace(':00', '')
 }
 
 function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString([], { weekday: 'short' })
+}
+
+function windHex(kt: number | null): string {
+  if (kt === null) return '#64748b'
+  if (kt < 10) return '#34d399'
+  if (kt < 20) return '#fbbf24'
+  return '#f87171'
+}
+
+const COL_W = 40
+const GAP = 8
+const STEP = COL_W + GAP
+
+function WindSparkline({ periods, maxKt }: { periods: HourlyPeriod[]; maxKt: number }) {
+  const H = 36
+  const PAD = 4
+  const dataH = H - PAD * 2
+  const W = periods.length * COL_W + Math.max(0, periods.length - 1) * GAP
+
+  const pts = periods.map((p, i) => {
+    const kt = parseWindKt(p.windSpeed) ?? 0
+    const x = i * STEP + COL_W / 2
+    const y = PAD + dataH * (1 - Math.min(kt, maxKt) / Math.max(maxKt, 1))
+    return { x, y, kt }
+  })
+
+  return (
+    <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
+      {pts.slice(1).map((pt, i) => (
+        <line
+          key={i}
+          x1={pts[i].x} y1={pts[i].y} x2={pt.x} y2={pt.y}
+          stroke={windHex(Math.max(pts[i].kt, pt.kt))}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      ))}
+      {pts.map((pt, i) => (
+        <circle key={i} cx={pt.x} cy={pt.y} r={2} fill={windHex(pt.kt)} />
+      ))}
+    </svg>
+  )
 }
 
 export function WindForecast({ periods }: Props) {
@@ -49,42 +89,46 @@ export function WindForecast({ periods }: Props) {
         24-Hour Wind Outlook <span className="text-slate-600 normal-case tracking-normal">↗</span>
       </a>
       <div className="overflow-x-auto">
-        <div className="flex gap-2 pb-1" style={{ minWidth: 'max-content' }}>
-          {periods.map((p, i) => {
-            const kt = parseWindKt(p.windSpeed)
-            const barHeight = kt !== null ? Math.round((kt / maxKt) * 40) : 0
-            const color = windColor(kt)
-            const deg = cardinalToDeg(p.windDirection)
-            const isNewDay = i > 0 &&
-              formatDay(p.startTime) !== formatDay(periods[i - 1].startTime)
+        <div style={{ minWidth: 'max-content' }}>
+          <WindSparkline periods={periods} maxKt={maxKt} />
+          <div className="flex gap-2 pb-1 mt-1">
+            {periods.map((p, i) => {
+              const kt = parseWindKt(p.windSpeed)
+              const gustKt = parseWindKt(p.windGust)
+              const showGust = gustKt !== null && kt !== null && gustKt > kt
+              const barHeight = kt !== null ? Math.round((kt / maxKt) * 40) : 0
+              const color = windColor(kt)
+              const deg = cardinalToDeg(p.windDirection)
+              const isNewDay = i > 0 &&
+                formatDay(p.startTime) !== formatDay(periods[i - 1].startTime)
+              const dayLabel = (i === 0 || isNewDay) ? formatDay(p.startTime) : ''
 
-            const dayLabel = (i === 0 || isNewDay) ? formatDay(p.startTime) : ''
-
-            return (
-              <div key={i} className="flex flex-col items-center gap-1 w-10">
-                <div className="text-xs text-slate-600 -mb-1" style={{ minHeight: '1rem' }}>{dayLabel}</div>
-                <div className="text-xs text-slate-500">{formatHour(p.startTime)}</div>
-                {/* Direction arrow */}
-                <span
-                  className={`text-xs ${color}`}
-                  style={{ transform: `rotate(${deg}deg)`, display: 'inline-block' }}
-                >
-                  ↑
-                </span>
-                {/* Speed bar */}
-                <div className="flex flex-col-reverse items-center" style={{ height: 48 }}>
-                  <div
-                    className={`w-3 rounded-sm transition-all ${color.replace('text-', 'bg-')}`}
-                    style={{ height: barHeight, opacity: 0.8 }}
-                  />
+              return (
+                <div key={i} className="flex flex-col items-center gap-1 w-10">
+                  <div className="text-xs text-slate-600 -mb-1" style={{ minHeight: '1rem' }}>{dayLabel}</div>
+                  <div className="text-xs text-slate-500">{formatHour(p.startTime)}</div>
+                  <span
+                    className={`text-base ${color}`}
+                    style={{ transform: `rotate(${deg}deg)`, display: 'inline-block', lineHeight: 1 }}
+                  >
+                    ↑
+                  </span>
+                  <div className="flex flex-col-reverse items-center" style={{ height: 48 }}>
+                    <div
+                      className={`w-3 rounded-sm transition-all ${color.replace('text-', 'bg-')}`}
+                      style={{ height: barHeight, opacity: 0.8 }}
+                    />
+                  </div>
+                  <div className={`text-xs font-bold tabular-nums ${color}`}>
+                    {kt !== null ? kt : '—'}
+                  </div>
+                  <div className="text-xs tabular-nums text-slate-500" style={{ minHeight: '1rem' }}>
+                    {showGust ? `G${gustKt}` : ''}
+                  </div>
                 </div>
-                <div className={`text-xs font-bold tabular-nums ${color}`}>
-                  {kt !== null ? kt : '—'}
-                </div>
-                <div className="text-xs text-slate-600">{p.windDirection}</div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
       <div className="text-xs text-slate-600 mt-2">kt · from weather.gov</div>
@@ -96,6 +140,7 @@ export function WindForecastSkeleton() {
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4 animate-pulse">
       <div className="h-2 w-40 bg-slate-700 rounded mb-3" />
+      <div className="h-8 bg-slate-800 rounded mb-1" />
       <div className="flex gap-2">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex flex-col items-center gap-2 w-10">

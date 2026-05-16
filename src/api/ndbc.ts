@@ -22,10 +22,10 @@ function parseSentinel(val: string): number | null {
   return n
 }
 
-function parseNdbcText(text: string): RawBuoyData {
+function parseNdbcRows(text: string): RawBuoyData[] {
   const lines = text.split('\n').filter(l => l.trim())
+  const rows: RawBuoyData[] = []
 
-  // First two lines are comment headers starting with #
   for (let i = 2; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line || line.startsWith('#')) continue
@@ -38,7 +38,7 @@ function parseNdbcText(text: string): RawBuoyData {
     const pad = (s: string) => s.padStart(2, '0')
     const observedAt = new Date(`${yr}-${pad(mo)}-${pad(dy)}T${pad(hr)}:${pad(mn)}:00Z`)
 
-    return {
+    rows.push({
       windDirDeg: parseSentinel(wdir),
       windSpeedMs: parseSentinel(wspd),
       gustMs: parseSentinel(gst),
@@ -47,10 +47,10 @@ function parseNdbcText(text: string): RawBuoyData {
       wtmpC: parseSentinel(wtmp),
       atmpC: parseSentinel(atmp),
       observedAt,
-    }
+    })
   }
 
-  throw new Error('No valid NDBC data found')
+  return rows
 }
 
 export async function fetchBuoy(station: StationConfig): Promise<BuoyObservation> {
@@ -59,20 +59,45 @@ export async function fetchBuoy(station: StationConfig): Promise<BuoyObservation
   if (!res.ok) throw new Error(`NDBC ${station.id} fetch failed: ${res.status}`)
 
   const text = await res.text()
-  const raw = parseNdbcText(text)
+  const rows = parseNdbcRows(text)
+  if (rows.length === 0) throw new Error('No valid NDBC data found')
+
+  const current = rows[0]
+
+  // Find the observation closest to 1 hour before the current reading
+  const targetMs = current.observedAt.getTime() - 60 * 60 * 1000
+  let prev: RawBuoyData | null = null
+  let prevDiff = Infinity
+  for (const row of rows.slice(1)) {
+    const diff = Math.abs(row.observedAt.getTime() - targetMs)
+    if (diff < prevDiff) { prevDiff = diff; prev = row }
+  }
+  if (prevDiff > 45 * 60 * 1000) prev = null
+
+  let trend: BuoyObservation['trend']
+  if (prev) {
+    const windDelta = current.windSpeedMs !== null && prev.windSpeedMs !== null
+      ? Math.round(msToKt(current.windSpeedMs) - msToKt(prev.windSpeedMs))
+      : null
+    const waveDelta = current.wvhtM !== null && prev.wvhtM !== null
+      ? Math.round((mToFt(current.wvhtM) - mToFt(prev.wvhtM)) * 10) / 10
+      : null
+    trend = { windDeltaKt: windDelta, waveDeltaFt: waveDelta }
+  }
 
   return {
     stationId: station.id,
     stationLabel: station.label,
-    windDirDeg: raw.windDirDeg,
-    windDirCardinal: raw.windDirDeg !== null ? degToCardinal(raw.windDirDeg) : null,
-    windSpeedKt: raw.windSpeedMs !== null ? msToKt(raw.windSpeedMs) : null,
-    windGustKt: raw.gustMs !== null ? msToKt(raw.gustMs) : null,
-    waveHeightFt: raw.wvhtM !== null ? mToFt(raw.wvhtM) : null,
-    wavePeriodSec: raw.dpdSec !== null ? Math.round(raw.dpdSec) : null,
-    waterTempF: raw.wtmpC !== null ? cToF(raw.wtmpC) : null,
-    airTempF: raw.atmpC !== null ? cToF(raw.atmpC) : null,
-    observedAt: raw.observedAt,
+    windDirDeg: current.windDirDeg,
+    windDirCardinal: current.windDirDeg !== null ? degToCardinal(current.windDirDeg) : null,
+    windSpeedKt: current.windSpeedMs !== null ? msToKt(current.windSpeedMs) : null,
+    windGustKt: current.gustMs !== null ? msToKt(current.gustMs) : null,
+    waveHeightFt: current.wvhtM !== null ? mToFt(current.wvhtM) : null,
+    wavePeriodSec: current.dpdSec !== null ? Math.round(current.dpdSec) : null,
+    waterTempF: current.wtmpC !== null ? cToF(current.wtmpC) : null,
+    airTempF: current.atmpC !== null ? cToF(current.atmpC) : null,
+    observedAt: current.observedAt,
+    trend,
   }
 }
 
