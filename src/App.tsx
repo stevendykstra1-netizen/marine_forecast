@@ -12,7 +12,7 @@ import { WaveForecast, WaveForecastSkeleton } from './components/WaveForecast'
 import { RadarMap } from './components/RadarMap'
 import { MarineSection } from './components/MarineSection'
 import { DiscussionSection } from './components/DiscussionSection'
-import { TodaysCall } from './components/TodaysCall'
+import { DayCallCard } from './components/TodaysCall'
 import { SunriseSunset } from './components/SunriseSunset'
 
 const STATIONS: StationConfig[] = [
@@ -96,6 +96,34 @@ export function App() {
 
   const primaryLoading = primaryResult.isLoading && !displayedPrimary
 
+  // --- Day-call time windows ---
+  const now = new Date()
+  const todaySunrise = sunQuery.data?.sunrise
+    ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0)
+  const todaySunset = sunQuery.data?.sunset
+    ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0)
+
+  // Tomorrow: shift today's times +24h (≈1-2 min off, fine for forecasting)
+  const tomorrowSunrise = new Date(todaySunrise.getTime() + 24 * 60 * 60 * 1000)
+  const tomorrowSunset  = new Date(todaySunset.getTime()  + 24 * 60 * 60 * 1000)
+
+  function byWindow<T extends { startTime: string }>(arr: T[], start: Date, end: Date): T[] {
+    return arr.filter(p => { const t = new Date(p.startTime); return t >= start && t <= end })
+  }
+
+  const allHourly = hourlyQuery.data ?? []
+  const allWaves  = waveQuery.data  ?? []
+
+  const todayHourly    = byWindow(allHourly, now,            todaySunset)
+  const tomorrowHourly = byWindow(allHourly, tomorrowSunrise, tomorrowSunset)
+  const todayWaves     = byWindow(allWaves,  now,            todaySunset)
+  const tomorrowWaves  = byWindow(allWaves,  tomorrowSunrise, tomorrowSunset)
+
+  const hoursToSunset  = (todaySunset.getTime() - now.getTime()) / 3_600_000
+  const isTodayDimmed  = now.getHours() >= 20 || hoursToSunset < 3
+
+  const hasDayCallData = hourlyQuery.data != null || alertsQuery.data != null
+
   return (
     <div className="bg-navy-950 text-slate-200 min-h-screen">
       <div className="max-w-lg mx-auto px-4 safe-top safe-bottom pb-6 space-y-3">
@@ -110,12 +138,27 @@ export function App() {
           isLoading={alertsQuery.isLoading}
         />
 
-        {(hourlyQuery.data || alertsQuery.data) && (
-          <TodaysCall
-            alerts={alertsQuery.data ?? []}
-            hourlyPeriods={hourlyQuery.data ?? []}
-            wavePeriods={waveQuery.data ?? []}
-          />
+        {hasDayCallData && (
+          <div className="grid grid-cols-2 gap-2">
+            <DayCallCard
+              label="TODAY"
+              alerts={alertsQuery.data ?? []}
+              hourlyPeriods={todayHourly}
+              wavePeriods={todayWaves}
+              windowStart={now}
+              windowEnd={todaySunset}
+              isPrimary={!isTodayDimmed}
+            />
+            <DayCallCard
+              label="TOMORROW"
+              alerts={alertsQuery.data ?? []}
+              hourlyPeriods={tomorrowHourly}
+              wavePeriods={tomorrowWaves}
+              windowStart={tomorrowSunrise}
+              windowEnd={tomorrowSunset}
+              isPrimary={isTodayDimmed}
+            />
+          </div>
         )}
 
         {primaryLoading ? (
@@ -139,13 +182,13 @@ export function App() {
         {hourlyQuery.isLoading ? (
           <WindForecastSkeleton />
         ) : hourlyQuery.data ? (
-          <WindForecast periods={hourlyQuery.data} />
+          <WindForecast periods={hourlyQuery.data.slice(0, 24)} />
         ) : null}
 
         {waveQuery.isLoading ? (
           <WaveForecastSkeleton />
         ) : waveQuery.data && waveQuery.data.length > 0 ? (
-          <WaveForecast periods={waveQuery.data} />
+          <WaveForecast periods={waveQuery.data.slice(0, 24)} />
         ) : null}
 
         <RadarMap />

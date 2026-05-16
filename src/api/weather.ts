@@ -80,7 +80,7 @@ async function getPoints() {
 export async function fetchHourlyForecast(): Promise<HourlyPeriod[]> {
   const { forecastHourly } = await getPoints()
   const data = await nwsFetch(forecastHourly)
-  return data.properties.periods.slice(0, 24).map((p: Record<string, unknown>) => ({
+  return data.properties.periods.slice(0, 48).map((p: Record<string, unknown>) => ({
     startTime: p.startTime,
     temperature: p.temperature,
     temperatureUnit: p.temperatureUnit,
@@ -159,7 +159,7 @@ export async function fetchWaveForecast(): Promise<WaveHourly[]> {
   // validTime format: "2024-06-01T12:00:00+00:00/PT1H" — expand duration intervals
   const hours: WaveHourly[] = []
   const now = Date.now()
-  const cutoff = now + 24 * 60 * 60 * 1000
+  const cutoff = now + 48 * 60 * 60 * 1000
 
   for (const v of values) {
     const [isoStart, duration] = v.validTime.split('/')
@@ -176,7 +176,7 @@ export async function fetchWaveForecast(): Promise<WaveHourly[]> {
     }
   }
 
-  return hours.slice(0, 24)
+  return hours.slice(0, 48)
 }
 
 // --- Sunrise / Sunset ---
