@@ -1,29 +1,8 @@
-import { HourlyPeriod } from '../types'
-import { windColor } from '../lib/colors'
+import { WaveHourly } from '../types'
+import { waveColor } from '../lib/colors'
 
 interface Props {
-  periods: HourlyPeriod[]
-}
-
-function parseWindKt(windSpeed: string): number | null {
-  if (!windSpeed || windSpeed.toLowerCase() === 'calm') return 0
-  const nums = windSpeed.match(/\d+/g)
-  if (!nums) return null
-  // "10 to 20 mph" -> average; "10 mph" -> 10
-  const mph = nums.length > 1
-    ? (parseInt(nums[0]) + parseInt(nums[nums.length - 1])) / 2
-    : parseInt(nums[0])
-  return Math.round(mph * 0.868976) // mph to knots
-}
-
-function cardinalToDeg(dir: string): number {
-  const map: Record<string, number> = {
-    N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
-    E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
-    S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
-    W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
-  }
-  return map[dir] ?? 0
+  periods: WaveHourly[]
 }
 
 function formatHour(iso: string): string {
@@ -35,43 +14,36 @@ function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString([], { weekday: 'short' })
 }
 
-export function WindForecast({ periods }: Props) {
-  const maxKt = Math.max(...periods.map(p => parseWindKt(p.windSpeed) ?? 0), 1)
+export function WaveForecast({ periods }: Props) {
+  const maxFt = Math.max(...periods.map(p => p.waveHeightFt ?? 0), 1)
 
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4">
       <a
-        href="https://forecast.weather.gov/MapClick.php?lat=41.938&lon=-87.638"
+        href="https://marine.weather.gov/MapClick.php?zoneid=LMZ741"
         target="_blank"
         rel="noopener noreferrer"
         className="text-xs uppercase tracking-widest text-slate-500 mb-3 block hover:text-slate-300 transition-colors"
       >
-        24-Hour Wind Outlook <span className="text-slate-600 normal-case tracking-normal">↗</span>
+        24-Hour Wave Outlook <span className="text-slate-600 normal-case tracking-normal">↗</span>
       </a>
       <div className="overflow-x-auto">
         <div className="flex gap-2 pb-1" style={{ minWidth: 'max-content' }}>
           {periods.map((p, i) => {
-            const kt = parseWindKt(p.windSpeed)
-            const barHeight = kt !== null ? Math.round((kt / maxKt) * 40) : 0
-            const color = windColor(kt)
-            const deg = cardinalToDeg(p.windDirection)
+            const ft = p.waveHeightFt
+            const barHeight = ft !== null ? Math.round((ft / maxFt) * 40) : 0
+            const color = waveColor(ft)
             const isNewDay = i > 0 &&
               formatDay(p.startTime) !== formatDay(periods[i - 1].startTime)
-
             const dayLabel = (i === 0 || isNewDay) ? formatDay(p.startTime) : ''
 
             return (
               <div key={i} className="flex flex-col items-center gap-1 w-10">
                 <div className="text-xs text-slate-600 -mb-1" style={{ minHeight: '1rem' }}>{dayLabel}</div>
                 <div className="text-xs text-slate-500">{formatHour(p.startTime)}</div>
-                {/* Direction arrow */}
-                <span
-                  className={`text-xs ${color}`}
-                  style={{ transform: `rotate(${deg}deg)`, display: 'inline-block' }}
-                >
-                  ↑
-                </span>
-                {/* Speed bar */}
+                {/* Wave icon */}
+                <span className={`text-xs ${color}`}>〜</span>
+                {/* Height bar */}
                 <div className="flex flex-col-reverse items-center" style={{ height: 48 }}>
                   <div
                     className={`w-3 rounded-sm transition-all ${color.replace('text-', 'bg-')}`}
@@ -79,20 +51,20 @@ export function WindForecast({ periods }: Props) {
                   />
                 </div>
                 <div className={`text-xs font-bold tabular-nums ${color}`}>
-                  {kt !== null ? kt : '—'}
+                  {ft !== null ? ft.toFixed(1) : '—'}
                 </div>
-                <div className="text-xs text-slate-600">{p.windDirection}</div>
+                <div className="text-xs text-slate-600">ft</div>
               </div>
             )
           })}
         </div>
       </div>
-      <div className="text-xs text-slate-600 mt-2">kt · from weather.gov</div>
+      <div className="text-xs text-slate-600 mt-2">ft · NOAA grid forecast</div>
     </div>
   )
 }
 
-export function WindForecastSkeleton() {
+export function WaveForecastSkeleton() {
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4 animate-pulse">
       <div className="h-2 w-40 bg-slate-700 rounded mb-3" />

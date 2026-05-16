@@ -1,6 +1,6 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { fetchBuoy, hasData } from './api/ndbc'
-import { fetchAlerts, fetchHourlyForecast, fetchMarineZone, fetchDiscussion } from './api/weather'
+import { fetchAlerts, fetchHourlyForecast, fetchMarineZone, fetchDiscussion, fetchWaveForecast } from './api/weather'
 import { StationConfig } from './types'
 import { Header } from './components/Header'
 import { AlertBanner } from './components/AlertBanner'
@@ -8,10 +8,10 @@ import { BuoyCard, BuoyCardSkeleton } from './components/BuoyCard'
 import { SecondaryStations } from './components/SecondaryStations'
 import { HourlyForecast, HourlyForecastSkeleton } from './components/HourlyForecast'
 import { WindForecast, WindForecastSkeleton } from './components/WindForecast'
+import { WaveForecast, WaveForecastSkeleton } from './components/WaveForecast'
 import { RadarMap } from './components/RadarMap'
 import { MarineSection } from './components/MarineSection'
 import { DiscussionSection } from './components/DiscussionSection'
-import { LakeTempImage } from './components/LakeTempImage'
 
 const STATIONS: StationConfig[] = [
   { id: 'CHII2', label: 'Chicago Crib', primary: true },
@@ -57,6 +57,13 @@ export function App() {
   const discussionQuery = useQuery({
     queryKey: ['discussion'],
     queryFn: fetchDiscussion,
+    staleTime: FORECAST_STALE,
+    retry: 1,
+  })
+
+  const waveQuery = useQuery({
+    queryKey: ['wave'],
+    queryFn: fetchWaveForecast,
     staleTime: FORECAST_STALE,
     retry: 1,
   })
@@ -112,6 +119,12 @@ export function App() {
           <WindForecast periods={hourlyQuery.data} />
         ) : null}
 
+        {waveQuery.isLoading ? (
+          <WaveForecastSkeleton />
+        ) : waveQuery.data && waveQuery.data.length > 0 ? (
+          <WaveForecast periods={waveQuery.data} />
+        ) : null}
+
         <RadarMap />
 
         <MarineSection
@@ -129,10 +142,8 @@ export function App() {
           onRetry={() => discussionQuery.refetch()}
         />
 
-        <LakeTempImage />
-
         <div className="text-xs text-slate-600 text-center pb-1">
-          Data: NOAA Weather API · NDBC Buoys · GLERL CoastWatch
+          Data: NOAA Weather API · NDBC Buoys
         </div>
       </div>
     </div>

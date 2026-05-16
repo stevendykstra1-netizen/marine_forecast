@@ -1,4 +1,4 @@
-import { HourlyPeriod, NwsAlert, MarineZoneForecast, MarinePeriod } from '../types'
+import { HourlyPeriod, NwsAlert, MarineZoneForecast, MarinePeriod, WaveHourly } from '../types'
 
 const NWS_BASE = 'https://api.weather.gov'
 // Belmont Harbor, Chicago
@@ -63,7 +63,7 @@ function parseProductSections(text: string): MarinePeriod[] {
 }
 
 // --- Points (cached once) ---
-let pointsCache: { forecastHourly: string; forecastZone: string } | null = null
+let pointsCache: { forecastHourly: string; forecastZone: string; forecastGridData: string } | null = null
 
 async function getPoints() {
   if (pointsCache) return pointsCache
@@ -71,6 +71,7 @@ async function getPoints() {
   pointsCache = {
     forecastHourly: data.properties.forecastHourly,
     forecastZone: data.properties.forecastZone,
+    forecastGridData: data.properties.forecastGridData,
   }
   return pointsCache
 }
@@ -121,18 +122,20 @@ function parseNshForZone741(text: string): MarinePeriod[] {
   const chunks = text.split(/\$\$/)
   for (const chunk of chunks) {
     if (!zoneGroupCoversLmz741(chunk)) continue
-    // Extract .PERIOD...text blocks
+    // Split on period headers (.WORD...) rather than using $ lookahead,
+    // which matches line-end in /gm mode and truncates multi-line bodies.
     const periods: MarinePeriod[] = []
-    const re = /^\.([\w ]+)\.\.\.([\s\S]*?)(?=^\.[A-Z]|$)/gm
-    let m
-    while ((m = re.exec(chunk)) !== null) {
-      const name = m[1].trim()
-      const body = m[2].trim()
-      if (name && body) periods.push({ name, text: normalizeNwsText(body) })
+    const subChunks = chunk.split(/^(?=\.[A-Z])/m)
+    for (const sc of subChunks) {
+      const m = sc.match(/^\.([\w ]+)\.\.\.([\s\S]*)/)
+      if (m) {
+        const name = m[1].trim()
+        const body = m[2].trim()
+        if (name && body) periods.push({ name, text: normalizeNwsText(body) })
+      }
     }
     if (periods.length > 0) return periods
   }
-  // Fallback: return generic parse
   return parseProductSections(text)
 }
 
@@ -143,6 +146,36 @@ export async function fetchMarineZone(): Promise<MarineZoneForecast> {
     periods: parseNshForZone741(product.productText),
     updatedAt: new Date(product.issuanceTime),
   }
+}
+
+// --- Wave forecast (grid data) ---
+export async function fetchWaveForecast(): Promise<WaveHourly[]> {
+  const { forecastGridData } = await getPoints() as { forecastHourly: string; forecastZone: string; forecastGridData: string }
+  const data = await nwsFetch(forecastGridData)
+  const values: Array<{ validTime: string; value: number | null }> =
+    data.properties?.waveHeight?.values ?? []
+
+  // validTime format: "2024-06-01T12:00:00+00:00/PT1H" — expand duration intervals
+  const hours: WaveHourly[] = []
+  const now = Date.now()
+  const cutoff = now + 24 * 60 * 60 * 1000
+
+  for (const v of values) {
+    const [isoStart, duration] = v.validTime.split('/')
+    const start = new Date(isoStart).getTime()
+    const durationHours = duration ? parseInt(duration.replace(/[^0-9]/g, '')) || 1 : 1
+    for (let h = 0; h < durationHours; h++) {
+      const t = start + h * 3600 * 1000
+      if (t >= now && t < cutoff) {
+        hours.push({
+          startTime: new Date(t).toISOString(),
+          waveHeightFt: v.value !== null ? Math.round(v.value * 3.28084 * 10) / 10 : null,
+        })
+      }
+    }
+  }
+
+  return hours.slice(0, 24)
 }
 
 // --- Forecast discussion ---

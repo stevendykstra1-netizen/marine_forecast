@@ -30,10 +30,16 @@ export function BuoyCard({ obs, isPrimary = false, isOfflineFallback = false }: 
         </div>
       )}
 
-      <div className="text-xs text-slate-400 mb-3">
+      <a
+        href={`https://www.ndbc.noaa.gov/station_page.php?station=${obs.stationId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-slate-400 mb-3 block hover:text-slate-200 transition-colors"
+      >
         {isPrimary ? 'Belmont Harbor' : obs.stationLabel}
         {isPrimary && <span className="text-slate-600 ml-2">at Chicago Crib</span>}
-      </div>
+        <span className="ml-1 text-slate-600">↗</span>
+      </a>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-4">
         <Stat label="Wind">

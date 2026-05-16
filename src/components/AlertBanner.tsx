@@ -22,15 +22,20 @@ export function AlertBanner({ alerts, isLoading }: Props) {
       {alerts.map(alert => {
         const colors = alertColor(alert.severity)
         return (
-          <div
+          <a
             key={alert.id}
-            className={`rounded-lg border p-4 ${colors.border} ${colors.bg}`}
+            href="https://alerts.weather.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`rounded-lg border p-4 block ${colors.border} ${colors.bg}`}
           >
-            <div className={`text-sm font-semibold ${colors.text}`}>{alert.event}</div>
+            <div className={`text-sm font-semibold ${colors.text}`}>
+              {alert.event} <span className="text-slate-600 font-normal">↗</span>
+            </div>
             {alert.headline && (
               <div className="text-xs text-slate-300 mt-0.5">{alert.headline}</div>
             )}
-          </div>
+          </a>
         )
       })}
     </div>

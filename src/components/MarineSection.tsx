@@ -11,7 +11,14 @@ export function MarineSection({ data, isLoading, error, onRetry }: Props) {
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs uppercase tracking-widest text-slate-500">Marine Zone · LMZ741</div>
+        <a
+          href="https://marine.weather.gov/MapClick.php?zoneid=LMZ741"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Marine Zone · LMZ741 <span className="text-slate-600 normal-case tracking-normal">↗</span>
+        </a>
         {data?.updatedAt && (
           <div className="text-xs text-slate-600">
             {data.updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}

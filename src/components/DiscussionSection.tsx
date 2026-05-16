@@ -12,7 +12,14 @@ export function DiscussionSection({ sections, updatedAt, isLoading, error, onRet
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-xs uppercase tracking-widest text-slate-500">Forecast Discussion · LOT</div>
+        <a
+          href="https://forecast.weather.gov/product.php?site=LOT&issuedby=LOT&product=AFD"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Forecast Discussion · LOT <span className="text-slate-600 normal-case tracking-normal">↗</span>
+        </a>
         {updatedAt && (
           <div className="text-xs text-slate-600">
             {updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}

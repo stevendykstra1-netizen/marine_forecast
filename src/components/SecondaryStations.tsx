@@ -25,7 +25,14 @@ export function SecondaryStations({ stations }: Props) {
       <div className="text-xs uppercase tracking-widest text-slate-600 pt-1">Other Stations</div>
       {stations.map(obs => (
         <div key={obs.stationId} className="bg-[#111d2e] rounded-xl p-4">
-          <div className="text-xs text-slate-500 mb-2">{obs.stationLabel}</div>
+          <a
+            href={`https://www.ndbc.noaa.gov/station_page.php?station=${obs.stationId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-slate-500 mb-2 block hover:text-slate-300 transition-colors"
+          >
+            {obs.stationLabel} <span className="text-slate-600">↗</span>
+          </a>
           <div className="flex justify-between items-center">
             <div>
               <div className="text-xs text-slate-600 mb-1">Wind</div>

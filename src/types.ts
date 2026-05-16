@@ -49,3 +49,8 @@ export interface DiscussionSection {
   name: string
   text: string
 }
+
+export interface WaveHourly {
+  startTime: string
+  waveHeightFt: number | null
+}

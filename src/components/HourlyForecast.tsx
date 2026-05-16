@@ -12,7 +12,14 @@ function formatHour(iso: string): string {
 export function HourlyForecast({ periods }: Props) {
   return (
     <div className="bg-[#111d2e] rounded-2xl p-4">
-      <div className="text-xs uppercase tracking-widest text-slate-500 mb-3">12-Hour Forecast</div>
+      <a
+        href="https://forecast.weather.gov/MapClick.php?lat=41.938&lon=-87.638"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs uppercase tracking-widest text-slate-500 mb-3 block hover:text-slate-300 transition-colors"
+      >
+        12-Hour Forecast <span className="text-slate-600 normal-case tracking-normal">↗</span>
+      </a>
       <div className="overflow-x-auto">
         <div className="flex gap-3 pb-1" style={{ minWidth: 'max-content' }}>
           {periods.map((p, i) => (
