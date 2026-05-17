@@ -47,18 +47,31 @@ export function DayCallCard({
   const gustKts = hourlyPeriods.map(p => p.windGustKt ?? 0)
   const waveFts = wavePeriods.map(p => p.waveHeightFt ?? 0)
 
-  const maxWindKt = Math.max(...windKts, 0)
-  const maxGustKt = Math.max(...gustKts, 0)
-  const maxWaveFt = Math.max(...waveFts, 0)
-  const maxThunder = Math.max(...wavePeriods.map(p => p.thunderPct ?? 0), 0)
+  const maxHourlyWindKt  = Math.max(...windKts, 0)
+  const maxMarineWindKt  = Math.max(...wavePeriods.map(p => p.marineWindKt ?? 0), 0)
+  const maxWindKt        = Math.max(maxHourlyWindKt, maxMarineWindKt)
+  const maxGustKt        = Math.max(...gustKts, 0)
+  const maxWaveFt        = Math.max(...waveFts, 0)
+  const maxThunder       = Math.max(...wavePeriods.map(p => p.thunderPct ?? 0), 0)
 
-  const peakWindIdx = windKts.indexOf(maxWindKt)
-  const peakWaveIdx = waveFts.indexOf(maxWaveFt)
-  const peakWindTime = hourlyPeriods[peakWindIdx]?.startTime ?? ''
+  // Use the peak time from whichever wind source is higher
+  const peakWindIdx  = maxMarineWindKt >= maxHourlyWindKt
+    ? wavePeriods.map(p => p.marineWindKt ?? 0).indexOf(maxMarineWindKt)
+    : windKts.indexOf(maxHourlyWindKt)
+  const peakWindTime = maxMarineWindKt >= maxHourlyWindKt
+    ? (wavePeriods[peakWindIdx]?.startTime ?? '')
+    : (hourlyPeriods[peakWindIdx]?.startTime ?? '')
+  const peakWaveIdx  = waveFts.indexOf(maxWaveFt)
   const peakWaveTime = wavePeriods[peakWaveIdx]?.startTime ?? ''
 
-  const hasWarning = alerts.some(a => a.event.toLowerCase().includes('warning'))
-  // Text fallback: check marine forecast text if grid thunder data unavailable
+  // Any active LMZ741 alert or gale mention → escalate verdict
+  const hasWarning = alerts.some(a =>
+    a.event.toLowerCase().includes('warning') ||
+    a.event.toLowerCase().includes('gale')
+  ) || /gale/i.test(marineText ?? '')
+  const hasAnyAlert = alerts.length > 0
+
+  // Thunder: use grid data; fall back to text keyword scan
   const thunderDataMissing = wavePeriods.every(p => p.thunderPct === null)
   const textHasThunder = thunderDataMissing && !!marineText && /thunder/i.test(marineText)
   const effectiveThunder = thunderDataMissing && textHasThunder ? 25 : maxThunder
@@ -71,8 +84,8 @@ export function DayCallCard({
     verdict = 'Rough'
     verdictColor = 'text-red-400'
     cardStyle = 'border-red-900 bg-red-950/40'
-  } else if (effectiveThunder > 20) {
-    // Thunder risk caps at Marginal regardless of wind/wave
+  } else if (effectiveThunder > 20 || hasAnyAlert) {
+    // Thunder risk or any active marine advisory → cap at Marginal
     verdict = 'Marginal'
     verdictColor = 'text-amber-400'
     cardStyle = 'border-amber-900 bg-amber-950/40'
@@ -96,9 +109,9 @@ export function DayCallCard({
 
   // Plain-English summary
   let summary = ''
-  if (isPrimary && hourlyPeriods.length) {
-    const firstKt = windKts[0] ?? 0
-    const lastKt = windKts[windKts.length - 1] ?? 0
+  if (isPrimary && (hourlyPeriods.length || wavePeriods.length)) {
+    const firstKt = Math.max(windKts[0] ?? 0, wavePeriods[0]?.marineWindKt ?? 0)
+    const lastKt  = Math.max(windKts[windKts.length - 1] ?? 0, wavePeriods[wavePeriods.length - 1]?.marineWindKt ?? 0)
     const dir = hourlyPeriods[0]?.windDirection ?? ''
     let windPhrase: string
     if (maxWindKt - firstKt >= 5 && peakWindIdx > 0) {

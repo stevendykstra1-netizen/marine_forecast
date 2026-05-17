@@ -87,6 +87,19 @@ async function getPoints() {
   return pointsCache
 }
 
+// Marine grid point — ~5 miles offshore of Belmont Harbor, resolves to LMZ741 water cell.
+// The land point (41.938,-87.638) resolves to Lincolnwood IL and returns stub waveHeight values.
+const MARINE_LAT = 41.92
+const MARINE_LON = -87.55
+let marineGridCache: { forecastGridData: string } | null = null
+
+async function getMarineGrid() {
+  if (marineGridCache) return marineGridCache
+  const data = await nwsFetch(`${NWS_BASE}/points/${MARINE_LAT},${MARINE_LON}`)
+  marineGridCache = { forecastGridData: data.properties.forecastGridData }
+  return marineGridCache
+}
+
 // --- Hourly forecast ---
 export async function fetchHourlyForecast(): Promise<HourlyPeriod[]> {
   const { forecastHourly } = await getPoints()
@@ -178,30 +191,30 @@ function expandGridValues(values: GridValue[], now: number, cutoff: number): Map
 }
 
 export async function fetchWaveForecast(): Promise<WaveHourly[]> {
-  const { forecastGridData } = await getPoints() as { forecastHourly: string; forecastZone: string; forecastGridData: string }
+  const { forecastGridData } = await getMarineGrid()
   const data = await nwsFetch(forecastGridData)
   const now = Date.now()
   const cutoff = now + 48 * 60 * 60 * 1000
 
-  const waveMap = expandGridValues(data.properties?.waveHeight?.values ?? [], now, cutoff)
-  const thunderMap = expandGridValues(data.properties?.probabilityOfThunder?.values ?? [], now, cutoff)
+  const waveMap    = expandGridValues(data.properties?.waveHeight?.values           ?? [], now, cutoff)
+  const thunderMap = expandGridValues(data.properties?.probabilityOfThunder?.values  ?? [], now, cutoff)
+  // windSpeed in marine grid is m/s — convert to kt (×1.94384)
+  const windMsMap  = expandGridValues(data.properties?.windSpeed?.values             ?? [], now, cutoff)
 
+  // Merge all timestamps
+  const allTs = new Set([...waveMap.keys(), ...thunderMap.keys(), ...windMsMap.keys()])
   const hours: WaveHourly[] = []
-  for (const [t, rawWave] of waveMap) {
+  for (const t of allTs) {
+    const rawWave = waveMap.get(t) ?? null
+    const rawWind = windMsMap.get(t) ?? null
     hours.push({
-      startTime: new Date(t).toISOString(),
+      startTime:    new Date(t).toISOString(),
       waveHeightFt: rawWave !== null ? Math.round(rawWave * 3.28084 * 10) / 10 : null,
-      thunderPct: thunderMap.get(t) ?? null,
+      thunderPct:   thunderMap.get(t) ?? null,
+      marineWindKt: rawWind !== null ? Math.round(rawWind * 1.94384) : null,
     })
   }
-  // Fill thunder for any hours that have thunder data but no wave data
-  for (const [t, pct] of thunderMap) {
-    if (!waveMap.has(t)) {
-      hours.push({ startTime: new Date(t).toISOString(), waveHeightFt: null, thunderPct: pct })
-    }
-  }
   hours.sort((a, b) => a.startTime.localeCompare(b.startTime))
-
   return hours.slice(0, 48)
 }
 

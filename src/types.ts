@@ -59,4 +59,5 @@ export interface WaveHourly {
   startTime: string
   waveHeightFt: number | null
   thunderPct: number | null
+  marineWindKt: number | null
 }
