@@ -90,7 +90,7 @@ async function getPoints() {
 // Marine grid point — ~5 miles offshore of Belmont Harbor, resolves to LMZ741 water cell.
 // The land point (41.938,-87.638) resolves to Lincolnwood IL and returns stub waveHeight values.
 const MARINE_LAT = 41.92
-const MARINE_LON = -87.55
+const MARINE_LON = -87.50
 let marineGridCache: { forecastGridData: string } | null = null
 
 async function getMarineGrid() {
