@@ -198,20 +198,20 @@ export async function fetchWaveForecast(): Promise<WaveHourly[]> {
 
   const waveMap    = expandGridValues(data.properties?.waveHeight?.values           ?? [], now, cutoff)
   const thunderMap = expandGridValues(data.properties?.probabilityOfThunder?.values  ?? [], now, cutoff)
-  // windSpeed in marine grid is m/s — convert to kt (×1.94384)
-  const windMsMap  = expandGridValues(data.properties?.windSpeed?.values             ?? [], now, cutoff)
+  // windSpeed in marine grid is km/h — convert to kt (÷1.852)
+  const windKmhMap = expandGridValues(data.properties?.windSpeed?.values             ?? [], now, cutoff)
 
   // Merge all timestamps
-  const allTs = new Set([...waveMap.keys(), ...thunderMap.keys(), ...windMsMap.keys()])
+  const allTs = new Set([...waveMap.keys(), ...thunderMap.keys(), ...windKmhMap.keys()])
   const hours: WaveHourly[] = []
   for (const t of allTs) {
     const rawWave = waveMap.get(t) ?? null
-    const rawWind = windMsMap.get(t) ?? null
+    const rawWind = windKmhMap.get(t) ?? null
     hours.push({
       startTime:    new Date(t).toISOString(),
       waveHeightFt: rawWave !== null ? Math.round(rawWave * 3.28084 * 10) / 10 : null,
       thunderPct:   thunderMap.get(t) ?? null,
-      marineWindKt: rawWind !== null ? Math.round(rawWind * 1.94384) : null,
+      marineWindKt: rawWind !== null ? Math.round(rawWind / 1.852) : null,
     })
   }
   hours.sort((a, b) => a.startTime.localeCompare(b.startTime))
